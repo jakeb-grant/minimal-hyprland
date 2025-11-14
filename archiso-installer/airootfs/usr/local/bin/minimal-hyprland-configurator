@@ -325,12 +325,13 @@ EOF
 # Create credentials file
 cat > /tmp/user_credentials.json <<EOF
 {
-  "!users": {
-    "$USERNAME": {
+  "!users": [
+    {
+      "username": "$USERNAME",
       "!password": "$USER_PASSWORD",
       "sudo": true
     }
-  }
+  ]
 }
 EOF
 
@@ -339,12 +340,13 @@ if [ "$USE_ENCRYPTION_FLAG" = "yes" ]; then
   # Add encryption password to credentials file
   cat > /tmp/user_credentials.json <<EOF
 {
-  "!users": {
-    "$USERNAME": {
+  "!users": [
+    {
+      "username": "$USERNAME",
       "!password": "$USER_PASSWORD",
       "sudo": true
     }
-  },
+  ],
   "!encryption-password": "$ENCRYPTION_PASSWORD"
 }
 EOF
