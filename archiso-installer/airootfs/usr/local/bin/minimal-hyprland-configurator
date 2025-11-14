@@ -236,8 +236,10 @@ ROOT_PARTITION_UUID=$(uuidgen)
 # Detect boot mode (UEFI vs BIOS)
 if [ -d /sys/firmware/efi ]; then
   BOOTLOADER="Systemd-boot"
+  BOOT_FLAG="esp"
 else
   BOOTLOADER="Grub"
+  BOOT_FLAG="boot"
 fi
 
 # Create archinstall config file
@@ -275,7 +277,7 @@ cat > /tmp/user_configuration.json <<EOF
           {
             "btrfs": [],
             "dev_path": null,
-            "flags": ["boot"],
+            "flags": ["$BOOT_FLAG"],
             "fs_type": "fat32",
             "mount_options": [],
             "mountpoint": "/boot",
