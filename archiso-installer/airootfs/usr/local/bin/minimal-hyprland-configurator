@@ -226,6 +226,9 @@ cat > /tmp/user_configuration.json <<EOF
   },
   "ntp": true,
   "timezone": "$TIMEZONE",
+  "network_config": {
+    "type": "nm"
+  },
   "disk_config": {
     "config_type": "default_layout",
     "device_modifications": [
