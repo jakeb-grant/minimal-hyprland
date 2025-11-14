@@ -133,8 +133,15 @@ fi
 DISK_SIZE_BYTES=$(lsblk -b -d -n -o SIZE "$DISK_PATH")
 DISK_SIZE_GIB=$((DISK_SIZE_BYTES / 1024 / 1024 / 1024))
 
-# Calculate root partition size: total - boot (1 GiB) - start offset - 1 GiB overhead for safety
-ROOT_SIZE_GIB=$((DISK_SIZE_GIB - 2))
+# Calculate 2.5% safety buffer (leave unpartitioned)
+SAFETY_BUFFER_GIB=$(( (DISK_SIZE_GIB * 25) / 1000 ))
+# Ensure at least 1 GiB buffer
+if [ "$SAFETY_BUFFER_GIB" -lt 1 ]; then
+  SAFETY_BUFFER_GIB=1
+fi
+
+# Calculate root partition size: total - boot (1 GiB) - start offset (1 GiB) - safety buffer
+ROOT_SIZE_GIB=$((DISK_SIZE_GIB - 2 - SAFETY_BUFFER_GIB))
 
 if [ "$ROOT_SIZE_GIB" -lt 8 ]; then
   gum style --foreground 1 "Error: Disk is too small. Need at least 10 GiB, found ${DISK_SIZE_GIB} GiB"
