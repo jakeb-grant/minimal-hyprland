@@ -1,0 +1,64 @@
+# Packages for the Live ISO environment
+# These are available during installation, not all will be installed to the final system
+
+# Base system
+base
+base-devel
+linux
+linux-firmware
+linux-headers
+
+# Bootloader
+systemd
+efibootmgr
+
+# File systems
+btrfs-progs
+dosfstools
+e2fsprogs
+exfatprogs
+f2fs-tools
+ntfs-3g
+xfsprogs
+
+# Network
+networkmanager
+iwd
+wpa_supplicant
+dhcpcd
+openssh
+
+# Archinstall
+archinstall
+
+# TUI Tools
+gum
+dialog
+terminus-font
+
+# Editors
+nano
+vim
+neovim
+
+# Essential utilities
+git
+curl
+wget
+rsync
+unzip
+zip
+tar
+gzip
+which
+tree
+
+# Hardware support
+intel-ucode
+amd-ucode
+nvme-cli
+smartmontools
+
+# Wireless firmware
+linux-firmware
+broadcom-wl

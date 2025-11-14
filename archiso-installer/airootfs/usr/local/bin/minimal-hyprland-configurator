@@ -1,0 +1,350 @@
+#!/bin/bash
+#
+# Minimal Hyprland Configurator
+# Beautiful TUI wrapper for archinstall
+#
+
+set -eEo pipefail
+
+# Colors and styling
+export GUM_INPUT_CURSOR_FOREGROUND="212"
+export GUM_INPUT_PROMPT_FOREGROUND="6"
+export GUM_CHOOSE_CURSOR_FOREGROUND="212"
+export GUM_CONFIRM_SELECTED_BACKGROUND="2"
+
+clear
+
+# ASCII Art Logo
+gum style \
+  --foreground 212 --bold --align center \
+  '
+ ╦ ╦┬ ┬┌─┐┬─┐┬  ┌─┐┌┐┌┌┬┐
+ ╠═╣└┬┘├─┘├┬┘│  ├─┤│││ ││
+ ╩ ╩ ┴ ┴  ┴└─┴─┘┴ ┴┘└┘─┴┘
+'
+
+echo
+gum style --foreground 6 --align center "Minimal Hyprland Installer"
+gum style --foreground 8 --align center "A beautiful, unopinionated Arch + Hyprland setup"
+echo
+echo
+
+# Welcome
+gum style --foreground 3 "Welcome! This installer will help you set up Arch Linux with Hyprland."
+echo
+gum style --foreground 8 "We'll ask you a few questions, then install the base system."
+gum style --foreground 8 "After that, we'll automatically install and configure Hyprland."
+echo
+echo
+
+if ! gum confirm "Ready to begin?"; then
+  echo "Installation cancelled."
+  exit 0
+fi
+
+clear
+
+# ============================================================================
+# Collect User Information
+# ============================================================================
+
+gum style --foreground 212 --bold "Step 1: User Information"
+echo
+
+# Full name
+USER_FULL_NAME=$(gum input \
+  --placeholder "John Doe" \
+  --prompt "Your full name: " \
+  --width 50)
+
+# Email
+USER_EMAIL=$(gum input \
+  --placeholder "john@example.com" \
+  --prompt "Email address (for git): " \
+  --width 50)
+
+# Username (auto-generate from full name)
+DEFAULT_USERNAME=$(echo "$USER_FULL_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g')
+USERNAME=$(gum input \
+  --placeholder "$DEFAULT_USERNAME" \
+  --prompt "Username (lowercase): " \
+  --value "$DEFAULT_USERNAME" \
+  --width 50)
+
+# Hostname
+DEFAULT_HOSTNAME="${USERNAME}-hyprland"
+HOSTNAME=$(gum input \
+  --placeholder "$DEFAULT_HOSTNAME" \
+  --prompt "Hostname: " \
+  --value "$DEFAULT_HOSTNAME" \
+  --width 50)
+
+clear
+
+# ============================================================================
+# Disk Selection
+# ============================================================================
+
+gum style --foreground 212 --bold "Step 2: Disk Configuration"
+echo
+
+# List available disks
+DISKS=$(lsblk -d -n -o NAME,SIZE,TYPE | grep disk | awk '{print "/dev/" $1 " (" $2 ")"}')
+
+if [ -z "$DISKS" ]; then
+  gum style --foreground 1 "No disks found! Cannot proceed."
+  exit 1
+fi
+
+# Let user choose disk
+SELECTED_DISK=$(echo "$DISKS" | gum choose --header "Select installation disk:")
+DISK_PATH=$(echo "$SELECTED_DISK" | awk '{print $1}')
+
+echo
+gum style --foreground 3 "Selected: $DISK_PATH"
+gum style --foreground 1 --bold "⚠ WARNING: All data on $DISK_PATH will be erased!"
+echo
+
+if ! gum confirm "Continue with $DISK_PATH?"; then
+  echo "Installation cancelled."
+  exit 0
+fi
+
+# Encryption
+echo
+USE_ENCRYPTION=$(gum choose "Enable disk encryption (recommended)" "No encryption" --header "Disk encryption:")
+
+if [ "$USE_ENCRYPTION" = "Enable disk encryption (recommended)" ]; then
+  ENCRYPTION_PASSWORD=$(gum input --password --placeholder "Enter encryption password")
+  ENCRYPTION_PASSWORD_CONFIRM=$(gum input --password --placeholder "Confirm encryption password")
+
+  if [ "$ENCRYPTION_PASSWORD" != "$ENCRYPTION_PASSWORD_CONFIRM" ]; then
+    gum style --foreground 1 "Passwords do not match! Exiting."
+    exit 1
+  fi
+
+  USE_ENCRYPTION_FLAG="yes"
+else
+  USE_ENCRYPTION_FLAG="no"
+fi
+
+clear
+
+# ============================================================================
+# System Configuration
+# ============================================================================
+
+gum style --foreground 212 --bold "Step 3: System Settings"
+echo
+
+# Timezone (auto-detect or let user choose)
+DETECTED_TIMEZONE=$(timedatectl show --property=Timezone --value 2>/dev/null || echo "America/New_York")
+TIMEZONE=$(gum input \
+  --placeholder "$DETECTED_TIMEZONE" \
+  --prompt "Timezone: " \
+  --value "$DETECTED_TIMEZONE" \
+  --width 50)
+
+# Locale
+LOCALE=$(gum choose "en_US.UTF-8" "en_GB.UTF-8" "de_DE.UTF-8" "fr_FR.UTF-8" "es_ES.UTF-8" "Other" \
+  --header "Select locale:")
+
+if [ "$LOCALE" = "Other" ]; then
+  LOCALE=$(gum input --placeholder "en_US.UTF-8" --prompt "Locale: ")
+fi
+
+# Keyboard layout
+KEYBOARD=$(gum choose "us" "uk" "de" "fr" "es" "Other" \
+  --header "Keyboard layout:")
+
+if [ "$KEYBOARD" = "Other" ]; then
+  KEYBOARD=$(gum input --placeholder "us" --prompt "Keyboard layout: ")
+fi
+
+clear
+
+# ============================================================================
+# Confirmation
+# ============================================================================
+
+gum style --foreground 212 --bold "Installation Summary"
+echo
+
+gum style --foreground 6 "User Information:"
+echo "  Name: $USER_FULL_NAME"
+echo "  Email: $USER_EMAIL"
+echo "  Username: $USERNAME"
+echo "  Hostname: $HOSTNAME"
+echo
+
+gum style --foreground 6 "System Configuration:"
+echo "  Disk: $DISK_PATH"
+echo "  Encryption: $USE_ENCRYPTION_FLAG"
+echo "  Timezone: $TIMEZONE"
+echo "  Locale: $LOCALE"
+echo "  Keyboard: $KEYBOARD"
+echo
+
+if ! gum confirm "Proceed with installation?"; then
+  echo "Installation cancelled."
+  exit 0
+fi
+
+# ============================================================================
+# Create archinstall Config
+# ============================================================================
+
+clear
+gum style --foreground 2 "Creating installation configuration..."
+
+# Create archinstall config file
+cat > /tmp/user_configuration.json <<EOF
+{
+  "bootloader": "systemd-bootctl",
+  "swap": true,
+  "hostname": "$HOSTNAME",
+  "kernels": ["linux"],
+  "locale": "$LOCALE",
+  "mirror-region": "Worldwide",
+  "ntp": true,
+  "timezone": "$TIMEZONE",
+  "disk_layouts": {
+    "$DISK_PATH": {
+      "partitions": [
+        {
+          "boot": true,
+          "encrypted": false,
+          "filesystem": "fat32",
+          "mountpoint": "/boot",
+          "size": "512MiB",
+          "type": "primary"
+        },
+        {
+          "encrypted": $([ "$USE_ENCRYPTION_FLAG" = "yes" ] && echo "true" || echo "false"),
+          "filesystem": "btrfs",
+          "mountpoint": "/",
+          "size": "100%",
+          "type": "primary"
+        }
+      ]
+    }
+  }
+}
+EOF
+
+# Create credentials file
+cat > /tmp/user_credentials.json <<EOF
+{
+  "!users": {
+    "$USERNAME": {
+      "!password": "PROMPT",
+      "sudo": true
+    }
+  }
+}
+EOF
+
+# If encryption, add password
+if [ "$USE_ENCRYPTION_FLAG" = "yes" ]; then
+  cat > /tmp/user_disk_encryption.json <<EOF
+{
+  "!encryption-password": "$ENCRYPTION_PASSWORD"
+}
+EOF
+fi
+
+# ============================================================================
+# Run archinstall
+# ============================================================================
+
+clear
+gum style --foreground 212 --bold "Running Arch Linux Installation..."
+echo
+
+# Run archinstall with our config
+if ! archinstall \
+  --config /tmp/user_configuration.json \
+  --creds /tmp/user_credentials.json \
+  $([ "$USE_ENCRYPTION_FLAG" = "yes" ] && echo "--disk-encryption /tmp/user_disk_encryption.json") \
+  --silent; then
+
+  gum style --foreground 1 "archinstall failed! Check logs for details."
+  exit 1
+fi
+
+# ============================================================================
+# Install Minimal Hyprland
+# ============================================================================
+
+clear
+gum style --foreground 212 --bold "Installing Minimal Hyprland..."
+echo
+
+# Check if minimal-hyprland repo is available
+MINIMAL_HYPRLAND_REPO="${MINIMAL_HYPRLAND_REPO:-yourusername/minimal-hyprland}"
+MINIMAL_HYPRLAND_BRANCH="${MINIMAL_HYPRLAND_BRANCH:-main}"
+
+gum style --foreground 6 "Cloning Minimal Hyprland from: https://github.com/$MINIMAL_HYPRLAND_REPO"
+
+# Chroot into new system and run minimal-hyprland installer
+arch-chroot /mnt /bin/bash <<CHROOT
+set -e
+
+# Setup user directories
+USER_HOME="/home/$USERNAME"
+mkdir -p "\$USER_HOME/.local/share"
+chown -R $USERNAME:$USERNAME "\$USER_HOME"
+
+# Clone minimal-hyprland as the user
+su - $USERNAME -c "git clone https://github.com/$MINIMAL_HYPRLAND_REPO.git \$USER_HOME/.local/share/minimal-hyprland"
+
+# Checkout specific branch if not main
+if [ "$MINIMAL_HYPRLAND_BRANCH" != "main" ]; then
+  su - $USERNAME -c "cd \$USER_HOME/.local/share/minimal-hyprland && git checkout $MINIMAL_HYPRLAND_BRANCH"
+fi
+
+# Set environment variables for git config
+export MINIMAL_HYPRLAND_USER_NAME="$USER_FULL_NAME"
+export MINIMAL_HYPRLAND_USER_EMAIL="$USER_EMAIL"
+
+# Run installer as the user
+su - $USERNAME -c "source \$USER_HOME/.local/share/minimal-hyprland/install.sh"
+
+# Enable NetworkManager
+systemctl enable NetworkManager
+
+echo "Minimal Hyprland installation complete!"
+CHROOT
+
+# Clean up sensitive files
+rm -f /tmp/user_*.json
+
+# ============================================================================
+# Finished
+# ============================================================================
+
+clear
+gum style --foreground 2 --bold --align center "
+╔═══════════════════════════════════════╗
+║                                       ║
+║  Installation Complete! 🎉           ║
+║                                       ║
+╚═══════════════════════════════════════╝
+"
+
+echo
+gum style --foreground 6 "Next steps:"
+echo
+echo "  1. The system will reboot shortly"
+echo "  2. Remove the installation media"
+echo "  3. Boot into your new system"
+echo "  4. Login with your credentials"
+echo "  5. Hyprland will start automatically"
+echo
+echo "Keybindings:"
+echo "  SUPER+SPACE    - Application launcher"
+echo "  SUPER+RETURN   - Terminal"
+echo "  SUPER+E        - File manager"
+echo
+
+gum confirm "Reboot now?" && reboot || echo "Reboot cancelled. Type 'reboot' when ready."

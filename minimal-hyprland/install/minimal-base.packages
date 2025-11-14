@@ -1,0 +1,112 @@
+# Minimal Hyprland Desktop - Core Packages Only
+# Essential packages for a beautiful, functional Hyprland setup
+
+# Window Manager & Session
+hyprland
+hypridle
+hyprlock
+hyprsunset
+uwsm
+
+# Status Bar & Notifications
+waybar
+mako
+
+# Application Launcher & Tools
+rofi-wayland
+
+# Wallpaper & Display
+swaybg
+brightnessctl
+wl-clipboard
+
+# Audio
+pamixer
+wireplumber
+pipewire
+pipewire-audio
+pipewire-pulse
+
+# Media Controls
+playerctl
+
+# Screenshot & Screen Recording
+grim
+slurp
+satty
+
+# Terminal & Shell
+kitty
+bash-completion
+starship
+
+# File Manager
+nautilus
+gvfs
+gvfs-mtp
+sushi
+
+# Document Viewer
+evince
+
+# Authentication & Security
+polkit-gnome
+gnome-keyring
+
+# Display Manager
+sddm
+plymouth
+
+# Portals (for screen sharing, file pickers, etc.)
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+
+# Fonts
+ttf-jetbrains-mono-nerd
+noto-fonts
+noto-fonts-emoji
+noto-fonts-cjk
+
+# Essential Utilities
+git
+github-cli
+man
+less
+tree-sitter-cli
+fastfetch
+btop
+ripgrep
+fd
+fzf
+eza
+bat
+gum
+jq
+
+# Development Tools
+mise
+docker
+docker-compose
+lazygit
+nvim
+
+# Compression
+unzip
+
+# Network
+iwd
+curl
+wget
+
+# System Info
+inxi
+
+# Calculator
+libqalculate
+
+# Icon Theme
+yaru-icon-theme
+
+# Qt Wayland Support
+qt5-wayland
+qt6-wayland
