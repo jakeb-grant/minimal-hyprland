@@ -11,6 +11,7 @@ linux-headers
 # Bootloader
 systemd
 efibootmgr
+syslinux
 
 # File systems
 btrfs-progs
