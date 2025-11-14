@@ -161,6 +161,17 @@ if [ "$KEYBOARD" = "Other" ]; then
   KEYBOARD=$(gum input --placeholder "us" --prompt "Keyboard layout: ")
 fi
 
+# User password
+echo
+gum style --foreground 6 "User Account Password"
+USER_PASSWORD=$(gum input --password --placeholder "Enter password for $USERNAME")
+USER_PASSWORD_CONFIRM=$(gum input --password --placeholder "Confirm password")
+
+if [ "$USER_PASSWORD" != "$USER_PASSWORD_CONFIRM" ]; then
+  gum style --foreground 1 "Passwords do not match! Exiting."
+  exit 1
+fi
+
 clear
 
 # ============================================================================
@@ -237,17 +248,24 @@ cat > /tmp/user_credentials.json <<EOF
 {
   "!users": {
     "$USERNAME": {
-      "!password": "PROMPT",
+      "!password": "$USER_PASSWORD",
       "sudo": true
     }
   }
 }
 EOF
 
-# If encryption, add password
+# If encryption is enabled, add password to credentials
 if [ "$USE_ENCRYPTION_FLAG" = "yes" ]; then
-  cat > /tmp/user_disk_encryption.json <<EOF
+  # Add encryption password to credentials file
+  cat > /tmp/user_credentials.json <<EOF
 {
+  "!users": {
+    "$USERNAME": {
+      "!password": "$USER_PASSWORD",
+      "sudo": true
+    }
+  },
   "!encryption-password": "$ENCRYPTION_PASSWORD"
 }
 EOF
@@ -265,7 +283,6 @@ echo
 if ! archinstall \
   --config /tmp/user_configuration.json \
   --creds /tmp/user_credentials.json \
-  $([ "$USE_ENCRYPTION_FLAG" = "yes" ] && echo "--disk-encryption /tmp/user_disk_encryption.json") \
   --silent; then
 
   gum style --foreground 1 "archinstall failed! Check logs for details."
