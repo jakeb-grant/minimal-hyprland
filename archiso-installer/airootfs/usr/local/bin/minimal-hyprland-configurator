@@ -211,35 +211,30 @@ gum style --foreground 2 "Creating installation configuration..."
 # Create archinstall config file
 cat > /tmp/user_configuration.json <<EOF
 {
-  "bootloader": "systemd-bootctl",
+  "bootloader": "Systemd-boot",
   "swap": true,
   "hostname": "$HOSTNAME",
   "kernels": ["linux"],
-  "locale": "$LOCALE",
-  "mirror-region": "Worldwide",
+  "locale_config": {
+    "kb_layout": "$KEYBOARD",
+    "sys_enc": "UTF-8",
+    "sys_lang": "$(echo $LOCALE | cut -d. -f1)"
+  },
   "ntp": true,
   "timezone": "$TIMEZONE",
-  "disk_layouts": {
-    "$DISK_PATH": {
-      "partitions": [
-        {
-          "boot": true,
-          "encrypted": false,
-          "filesystem": "fat32",
-          "mountpoint": "/boot",
-          "size": "512MiB",
-          "type": "primary"
-        },
-        {
-          "encrypted": $([ "$USE_ENCRYPTION_FLAG" = "yes" ] && echo "true" || echo "false"),
-          "filesystem": "btrfs",
-          "mountpoint": "/",
-          "size": "100%",
-          "type": "primary"
-        }
-      ]
-    }
-  }
+  "disk_config": {
+    "config_type": "default_layout",
+    "device_modifications": [
+      {
+        "device": "$DISK_PATH",
+        "wipe": true
+      }
+    ]
+  }$([ "$USE_ENCRYPTION_FLAG" = "yes" ] && echo ',
+  "disk_encryption": {
+    "encryption_type": "luks",
+    "partitions": ["root"]
+  }')
 }
 EOF
 
