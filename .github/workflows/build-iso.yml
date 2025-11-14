@@ -75,9 +75,6 @@ jobs:
             ls -lh /workspace/archiso-installer/output/
             echo 'SHA256 Checksums:'
             cat SHA256SUMS
-
-            # Fix ownership so GitHub Actions can read the files
-            chown -R $(stat -c '%u:%g' /workspace) /workspace/archiso-installer/output
           "
 
     - name: Get ISO filename
