@@ -140,7 +140,7 @@ if [ "$SAFETY_BUFFER_GIB" -lt 1 ]; then
   SAFETY_BUFFER_GIB=1
 fi
 
-# Calculate root partition size: total - boot (1 GiB) - start offset (1 GiB) - safety buffer
+# Calculate root partition size: total - root start position (2 GiB) - safety buffer
 ROOT_SIZE_GIB=$((DISK_SIZE_GIB - 2 - SAFETY_BUFFER_GIB))
 
 if [ "$ROOT_SIZE_GIB" -lt 8 ]; then
@@ -305,7 +305,7 @@ cat > /tmp/user_configuration.json <<EOF
                 "value": 512
               },
               "unit": "GiB",
-              "value": 1
+              "value": 2
             },
             "status": "create",
             "type": "primary"
