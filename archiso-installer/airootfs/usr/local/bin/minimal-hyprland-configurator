@@ -233,10 +233,17 @@ gum style --foreground 2 "Creating installation configuration..."
 BOOT_PARTITION_UUID=$(uuidgen)
 ROOT_PARTITION_UUID=$(uuidgen)
 
+# Detect boot mode (UEFI vs BIOS)
+if [ -d /sys/firmware/efi ]; then
+  BOOTLOADER="Systemd-boot"
+else
+  BOOTLOADER="Grub"
+fi
+
 # Create archinstall config file
 cat > /tmp/user_configuration.json <<EOF
 {
-  "bootloader": "Systemd-boot",
+  "bootloader": "$BOOTLOADER",
   "swap": true,
   "hostname": "$HOSTNAME",
   "kernels": ["linux"],
