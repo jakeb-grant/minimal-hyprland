@@ -56,6 +56,7 @@ pacman -Syw --noconfirm --cachedir "$build_dir/airootfs/var/cache/pacman/pkg" \
     networkmanager \
     pipewire pipewire-audio pipewire-pulse wireplumber \
     bluez bluez-utils \
+    dosfstools e2fsprogs cryptsetup sudo \
     git wget curl
 
 echo "==> Package cache populated with $(ls "$build_dir/airootfs/var/cache/pacman/pkg" | wc -l) packages"
