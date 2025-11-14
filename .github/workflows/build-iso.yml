@@ -67,8 +67,17 @@ jobs:
             # Build the ISO
             mkarchiso -v -w /tmp/archiso-work -o /workspace/archiso-installer/output .
 
-            # List output
+            # Generate checksums (inside container to avoid permission issues)
+            cd /workspace/archiso-installer/output
+            sha256sum *.iso > SHA256SUMS
+
+            # List output and show checksums
             ls -lh /workspace/archiso-installer/output/
+            echo 'SHA256 Checksums:'
+            cat SHA256SUMS
+
+            # Fix ownership so GitHub Actions can read the files
+            chown -R $(stat -c '%u:%g' /workspace) /workspace/archiso-installer/output
           "
 
     - name: Get ISO filename
@@ -79,10 +88,9 @@ jobs:
         echo "iso_file=$ISO_FILE" >> $GITHUB_OUTPUT
         echo "iso_name=$ISO_NAME" >> $GITHUB_OUTPUT
 
-        # Calculate checksum
-        cd archiso-installer/output
-        sha256sum *.iso > SHA256SUMS
-        cat SHA256SUMS
+        # Display checksums
+        echo "SHA256 checksums:"
+        cat archiso-installer/output/SHA256SUMS
 
     - name: Upload ISO as artifact
       uses: actions/upload-artifact@v4
