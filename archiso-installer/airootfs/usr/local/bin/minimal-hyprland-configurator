@@ -377,10 +377,32 @@ clear
 gum style --foreground 212 --bold "Running Arch Linux Installation..."
 echo
 
-# Run archinstall with our config
+# Configure pacman to use local package cache for offline installation
+# This prevents archinstall from trying to download packages from the internet
+cat > /tmp/pacman.conf <<'PACMAN_EOF'
+[options]
+HoldPkg     = pacman glibc
+Architecture = auto
+CheckSpace
+SigLevel    = Required DatabaseOptional
+LocalFileSigLevel = Optional
+
+# Use local package cache from the ISO
+CacheDir = /var/cache/pacman/pkg
+CacheDir = /run/archiso/bootmnt/arch/x86_64/
+
+[core]
+Include = /etc/pacman.d/mirrorlist
+
+[extra]
+Include = /etc/pacman.d/mirrorlist
+PACMAN_EOF
+
+# Run archinstall with our config and custom pacman.conf
 if ! archinstall \
   --config /tmp/user_configuration.json \
   --creds /tmp/user_credentials.json \
+  --pacman-conf /tmp/pacman.conf \
   --silent; then
 
   gum style --foreground 1 "archinstall failed! Check logs for details."
