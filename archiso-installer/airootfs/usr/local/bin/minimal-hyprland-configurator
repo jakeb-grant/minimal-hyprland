@@ -128,6 +128,19 @@ else
   USE_ENCRYPTION_FLAG="no"
 fi
 
+# Calculate disk size for partitioning
+# Get disk size in GiB
+DISK_SIZE_BYTES=$(lsblk -b -d -n -o SIZE "$DISK_PATH")
+DISK_SIZE_GIB=$((DISK_SIZE_BYTES / 1024 / 1024 / 1024))
+
+# Calculate root partition size: total - boot (1 GiB) - start offset - 1 GiB overhead for safety
+ROOT_SIZE_GIB=$((DISK_SIZE_GIB - 2))
+
+if [ "$ROOT_SIZE_GIB" -lt 8 ]; then
+  gum style --foreground 1 "Error: Disk is too small. Need at least 10 GiB, found ${DISK_SIZE_GIB} GiB"
+  exit 1
+fi
+
 clear
 
 # ============================================================================
@@ -276,8 +289,8 @@ cat > /tmp/user_configuration.json <<EOF
                 "unit": "B",
                 "value": 512
               },
-              "unit": "%",
-              "value": 100
+              "unit": "GiB",
+              "value": $ROOT_SIZE_GIB
             },
             "start": {
               "sector_size": {
