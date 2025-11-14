@@ -1,0 +1,146 @@
+name: Build Minimal Hyprland ISO
+
+on:
+  # Allow manual triggering from Actions tab
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build from (leave empty for current branch)'
+        required: false
+        default: ''
+
+  # Auto-build on push to specific paths
+  push:
+    paths:
+      - 'archiso-installer/**'
+      - 'minimal-hyprland/**'
+      - '.github/workflows/build-iso.yml'
+    branches:
+      - main
+      - master
+      - 'claude/**'
+      - 'feature/**'
+
+  # Auto-build on release
+  release:
+    types: [created]
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.branch || github.ref_name }}
+
+    - name: Free up disk space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/share/boost
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        sudo apt-get clean
+        df -h
+
+    - name: Set up Arch Linux container
+      run: |
+        docker pull archlinux:latest
+
+    - name: Build ISO in Arch container
+      run: |
+        docker run --rm --privileged \
+          -v ${{ github.workspace }}:/workspace \
+          -w /workspace/archiso-installer \
+          archlinux:latest \
+          /bin/bash -c "
+            set -e
+
+            # Update system and install dependencies
+            pacman -Syu --noconfirm
+            pacman -S --noconfirm archiso git base-devel
+
+            # Show disk space
+            df -h
+
+            # Build the ISO
+            mkarchiso -v -w /tmp/archiso-work -o /workspace/archiso-installer/output .
+
+            # List output
+            ls -lh /workspace/archiso-installer/output/
+          "
+
+    - name: Get ISO filename
+      id: iso_info
+      run: |
+        ISO_FILE=$(ls archiso-installer/output/*.iso | head -1)
+        ISO_NAME=$(basename "$ISO_FILE")
+        echo "iso_file=$ISO_FILE" >> $GITHUB_OUTPUT
+        echo "iso_name=$ISO_NAME" >> $GITHUB_OUTPUT
+
+        # Calculate checksum
+        cd archiso-installer/output
+        sha256sum *.iso > SHA256SUMS
+        cat SHA256SUMS
+
+    - name: Upload ISO as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: minimal-hyprland-iso
+        path: |
+          archiso-installer/output/*.iso
+          archiso-installer/output/SHA256SUMS
+        retention-days: 30
+        compression-level: 0  # Don't compress ISO (already compressed)
+
+    - name: Upload to release (if triggered by release)
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ${{ steps.iso_info.outputs.iso_file }}
+        asset_name: ${{ steps.iso_info.outputs.iso_name }}
+        asset_content_type: application/x-iso9660-image
+
+    - name: Comment on PR with download link (if PR)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '## 🎉 ISO Build Complete!\n\n' +
+                  'Download the ISO from the [Actions artifacts](' +
+                  `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}` +
+                  ').\n\n' +
+                  '**Filename:** `${{ steps.iso_info.outputs.iso_name }}`\n\n' +
+                  '### Next steps:\n' +
+                  '1. Download the ISO from artifacts above\n' +
+                  '2. Write to USB using Rufus (Windows) or dd (Linux)\n' +
+                  '3. Boot and test the installation!\n\n' +
+                  '**Note:** Artifact will be available for 30 days.'
+          })
+
+    - name: Build summary
+      run: |
+        echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ ISO built successfully!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Filename:** \`${{ steps.iso_info.outputs.iso_name }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Size:** $(du -h ${{ steps.iso_info.outputs.iso_file }} | cut -f1)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**SHA256:**" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        cat archiso-installer/output/SHA256SUMS >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Download" >> $GITHUB_STEP_SUMMARY
+        echo "The ISO is available in the **Artifacts** section above." >> $GITHUB_STEP_SUMMARY
+        echo "It will be retained for 30 days." >> $GITHUB_STEP_SUMMARY
