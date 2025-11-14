@@ -161,6 +161,17 @@ if [ "$KEYBOARD" = "Other" ]; then
   KEYBOARD=$(gum input --placeholder "us" --prompt "Keyboard layout: ")
 fi
 
+# User password
+echo
+gum style --foreground 6 "User Account Password"
+USER_PASSWORD=$(gum input --password --placeholder "Enter password for $USERNAME")
+USER_PASSWORD_CONFIRM=$(gum input --password --placeholder "Confirm password")
+
+if [ "$USER_PASSWORD" != "$USER_PASSWORD_CONFIRM" ]; then
+  gum style --foreground 1 "Passwords do not match! Exiting."
+  exit 1
+fi
+
 clear
 
 # ============================================================================
@@ -197,37 +208,95 @@ fi
 clear
 gum style --foreground 2 "Creating installation configuration..."
 
+# Generate UUIDs for partitions
+BOOT_PARTITION_UUID=$(uuidgen)
+ROOT_PARTITION_UUID=$(uuidgen)
+
 # Create archinstall config file
 cat > /tmp/user_configuration.json <<EOF
 {
-  "bootloader": "systemd-bootctl",
+  "bootloader": "Systemd-boot",
   "swap": true,
   "hostname": "$HOSTNAME",
   "kernels": ["linux"],
-  "locale": "$LOCALE",
-  "mirror-region": "Worldwide",
+  "locale_config": {
+    "kb_layout": "$KEYBOARD",
+    "sys_enc": "UTF-8",
+    "sys_lang": "$(echo $LOCALE | cut -d. -f1)"
+  },
   "ntp": true,
   "timezone": "$TIMEZONE",
-  "disk_layouts": {
-    "$DISK_PATH": {
-      "partitions": [
-        {
-          "boot": true,
-          "encrypted": false,
-          "filesystem": "fat32",
-          "mountpoint": "/boot",
-          "size": "512MiB",
-          "type": "primary"
-        },
-        {
-          "encrypted": $([ "$USE_ENCRYPTION_FLAG" = "yes" ] && echo "true" || echo "false"),
-          "filesystem": "btrfs",
-          "mountpoint": "/",
-          "size": "100%",
-          "type": "primary"
-        }
-      ]
-    }
+  "network_config": {
+    "type": "nm"
+  },
+  "disk_config": {
+    "config_type": "default_layout",
+    "device_modifications": [
+      {
+        "device": "$DISK_PATH",
+        "wipe": true,
+        "partitions": [
+          {
+            "btrfs": [],
+            "dev_path": null,
+            "flags": ["boot"],
+            "fs_type": "fat32",
+            "mount_options": [],
+            "mountpoint": "/boot",
+            "obj_id": "$BOOT_PARTITION_UUID",
+            "size": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "GiB",
+              "value": 1
+            },
+            "start": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "MiB",
+              "value": 1
+            },
+            "status": "create",
+            "type": "primary"
+          },
+          {
+            "btrfs": [],
+            "dev_path": null,
+            "flags": [],
+            "fs_type": "ext4",
+            "mount_options": [],
+            "mountpoint": "/",
+            "obj_id": "$ROOT_PARTITION_UUID",
+            "size": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "%",
+              "value": 100
+            },
+            "start": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "GiB",
+              "value": 1
+            },
+            "status": "create",
+            "type": "primary"
+          }
+        ]
+      }
+    ]$([ "$USE_ENCRYPTION_FLAG" = "yes" ] && echo ',
+    "disk_encryption": {
+      "encryption_type": "luks",
+      "partitions": ["'"$ROOT_PARTITION_UUID"'"]
+    }')
   }
 }
 EOF
@@ -237,17 +306,24 @@ cat > /tmp/user_credentials.json <<EOF
 {
   "!users": {
     "$USERNAME": {
-      "!password": "PROMPT",
+      "!password": "$USER_PASSWORD",
       "sudo": true
     }
   }
 }
 EOF
 
-# If encryption, add password
+# If encryption is enabled, add password to credentials
 if [ "$USE_ENCRYPTION_FLAG" = "yes" ]; then
-  cat > /tmp/user_disk_encryption.json <<EOF
+  # Add encryption password to credentials file
+  cat > /tmp/user_credentials.json <<EOF
 {
+  "!users": {
+    "$USERNAME": {
+      "!password": "$USER_PASSWORD",
+      "sudo": true
+    }
+  },
   "!encryption-password": "$ENCRYPTION_PASSWORD"
 }
 EOF
@@ -265,7 +341,6 @@ echo
 if ! archinstall \
   --config /tmp/user_configuration.json \
   --creds /tmp/user_credentials.json \
-  $([ "$USE_ENCRYPTION_FLAG" = "yes" ] && echo "--disk-encryption /tmp/user_disk_encryption.json") \
   --silent; then
 
   gum style --foreground 1 "archinstall failed! Check logs for details."
