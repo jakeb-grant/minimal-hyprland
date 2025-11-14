@@ -208,6 +208,10 @@ fi
 clear
 gum style --foreground 2 "Creating installation configuration..."
 
+# Generate UUIDs for partitions
+BOOT_PARTITION_UUID=$(uuidgen)
+ROOT_PARTITION_UUID=$(uuidgen)
+
 # Create archinstall config file
 cat > /tmp/user_configuration.json <<EOF
 {
@@ -227,14 +231,70 @@ cat > /tmp/user_configuration.json <<EOF
     "device_modifications": [
       {
         "device": "$DISK_PATH",
-        "wipe": true
+        "wipe": true,
+        "partitions": [
+          {
+            "btrfs": [],
+            "dev_path": null,
+            "flags": ["boot"],
+            "fs_type": "fat32",
+            "mount_options": [],
+            "mountpoint": "/boot",
+            "obj_id": "$BOOT_PARTITION_UUID",
+            "size": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "GiB",
+              "value": 1
+            },
+            "start": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "MiB",
+              "value": 1
+            },
+            "status": "create",
+            "type": "primary"
+          },
+          {
+            "btrfs": [],
+            "dev_path": null,
+            "flags": [],
+            "fs_type": "ext4",
+            "mount_options": [],
+            "mountpoint": "/",
+            "obj_id": "$ROOT_PARTITION_UUID",
+            "size": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "%",
+              "value": 100
+            },
+            "start": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "GiB",
+              "value": 1
+            },
+            "status": "create",
+            "type": "primary"
+          }
+        ]
       }
-    ]
-  }$([ "$USE_ENCRYPTION_FLAG" = "yes" ] && echo ',
-  "disk_encryption": {
-    "encryption_type": "luks",
-    "partitions": ["root"]
-  }')
+    ]$([ "$USE_ENCRYPTION_FLAG" = "yes" ] && echo ',
+    "disk_encryption": {
+      "encryption_type": "luks",
+      "partitions": ["'"$ROOT_PARTITION_UUID"'"]
+    }')
+  }
 }
 EOF
 
