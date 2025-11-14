@@ -133,14 +133,15 @@ fi
 DISK_SIZE_BYTES=$(lsblk -b -d -n -o SIZE "$DISK_PATH")
 DISK_SIZE_GIB=$((DISK_SIZE_BYTES / 1024 / 1024 / 1024))
 
-# Calculate 2.5% safety buffer (leave unpartitioned)
-SAFETY_BUFFER_GIB=$(( (DISK_SIZE_GIB * 25) / 1000 ))
+# Calculate 1.5% safety buffer at end (leave unpartitioned for SSD over-provisioning)
+SAFETY_BUFFER_GIB=$(( (DISK_SIZE_GIB * 15) / 1000 ))
 # Ensure at least 1 GiB buffer
 if [ "$SAFETY_BUFFER_GIB" -lt 1 ]; then
   SAFETY_BUFFER_GIB=1
 fi
 
-# Calculate root partition size: total - boot (1 GiB) - start offset (1 GiB) - safety buffer
+# Root partition starts at 1100 MiB (~1.1 GiB, just after boot partition)
+# Calculate root partition size: total - 1.1 GiB start position - safety buffer
 ROOT_SIZE_GIB=$((DISK_SIZE_GIB - 2 - SAFETY_BUFFER_GIB))
 
 if [ "$ROOT_SIZE_GIB" -lt 8 ]; then
@@ -304,8 +305,8 @@ cat > /tmp/user_configuration.json <<EOF
                 "unit": "B",
                 "value": 512
               },
-              "unit": "GiB",
-              "value": 1
+              "unit": "MiB",
+              "value": 1100
             },
             "status": "create",
             "type": "primary"
