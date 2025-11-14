@@ -8,6 +8,9 @@ linux
 linux-firmware
 linux-headers
 
+# Archiso (provides live ISO hooks and functionality)
+archiso
+
 # Bootloader
 systemd
 efibootmgr

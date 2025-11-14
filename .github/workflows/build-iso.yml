@@ -52,7 +52,7 @@ jobs:
       run: |
         docker run --rm --privileged \
           -v ${{ github.workspace }}:/workspace \
-          -w /workspace/archiso-installer \
+          -w /workspace \
           archlinux:latest \
           /bin/bash -c "
             set -e
@@ -64,15 +64,14 @@ jobs:
             # Show disk space
             df -h
 
-            # Build the ISO
-            mkarchiso -v -w /tmp/archiso-work -o /workspace/archiso-installer/output .
+            # Run our build script (uses releng profile as base)
+            /workspace/archiso-installer/build-iso.sh
 
             # Generate checksums (inside container to avoid permission issues)
             cd /workspace/archiso-installer/output
             sha256sum *.iso > SHA256SUMS
 
-            # List output and show checksums
-            ls -lh /workspace/archiso-installer/output/
+            # Show checksums
             echo 'SHA256 Checksums:'
             cat SHA256SUMS
           "
