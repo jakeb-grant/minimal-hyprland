@@ -250,6 +250,14 @@ cat > /tmp/user_configuration.json <<EOF
   "network_config": {
     "type": "nm"
   },
+  "app_config": {
+    "audio_config": {
+      "audio": "pipewire"
+    },
+    "bluetooth_config": {
+      "enabled": true
+    }
+  },
   "disk_config": {
     "config_type": "default_layout",
     "device_modifications": [
