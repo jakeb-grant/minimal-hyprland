@@ -53,7 +53,7 @@ mkdir -p "$build_dir/airootfs/var/cache/pacman/pkg"
 # Note: systemd-boot is included in systemd package, not separate
 pacman -Syw --noconfirm --cachedir "$build_dir/airootfs/var/cache/pacman/pkg" \
     base base-devel linux linux-firmware \
-    grub efibootmgr \
+    grub efibootmgr os-prober mtools \
     networkmanager \
     pipewire pipewire-audio pipewire-pulse wireplumber \
     bluez bluez-utils \
