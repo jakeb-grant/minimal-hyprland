@@ -12,7 +12,7 @@ waybar
 mako
 
 # Application Launcher & Tools
-rofi-wayland
+rofi
 
 # Wallpaper & Display
 swaybg
