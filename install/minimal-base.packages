@@ -105,7 +105,7 @@ inxi
 libqalculate
 
 # Icon Theme
-yaru-icon-theme
+papirus-icon-theme
 
 # Qt Wayland Support
 qt5-wayland
