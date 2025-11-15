@@ -25,6 +25,7 @@ wireplumber
 pipewire
 pipewire-audio
 pipewire-pulse
+pipewire-alsa
 
 # Media Controls
 playerctl
@@ -42,10 +43,18 @@ starship
 nautilus
 gvfs
 gvfs-mtp
+gvfs-nfs
+gvfs-smb
 sushi
 
 # Document Viewer
 evince
+
+# Image Viewer
+imv
+
+# Video Player
+mpv
 
 # Authentication & Security
 polkit-gnome
@@ -80,6 +89,8 @@ eza
 bat
 gum
 jq
+xdg-terminal-exec
+plocate
 
 # Development Tools
 docker
@@ -94,6 +105,13 @@ unzip
 iwd
 curl
 wget
+avahi
+
+# Firewall
+ufw
+
+# Power Management
+power-profiles-daemon
 
 # System Info
 inxi
