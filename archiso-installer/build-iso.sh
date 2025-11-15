@@ -1,100 +1,90 @@
 #!/bin/bash
 #
-# Build Minimal Hyprland ISO
+# Minimal Hyprland ISO Builder
+# Based on Omarchy's build approach - uses official Arch releng profile as foundation
 #
 
 set -e
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+echo "==> Building Minimal Hyprland ISO"
 
-echo -e "${BLUE}"
-echo " ╦ ╦┬ ┬┌─┐┬─┐┬  ┌─┐┌┐┌┌┬┐"
-echo " ╠═╣└┬┘├─┘├┬┘│  ├─┤│││ ││"
-echo " ╩ ╩ ┴ ┴  ┴└─┴─┘┴ ┴┘└┘─┴┘"
-echo " ISO Builder"
-echo -e "${NC}"
-
-# Check if archiso is installed
-if ! command -v mkarchiso &> /dev/null; then
-    echo -e "${RED}Error: archiso is not installed${NC}"
-    echo "Install it with: sudo pacman -S archiso"
-    exit 1
-fi
-
-# Check if running with sudo
-if [ "$EUID" -ne 0 ]; then
-    echo -e "${RED}Error: This script must be run as root${NC}"
-    echo "Run with: sudo ./build-iso.sh"
-    exit 1
-fi
-
-# Validate package list
-echo
-echo -e "${YELLOW}Validating package list...${NC}"
+# Validate package list first (fail fast before building)
+echo "==> Validating package list..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 if ! "$PROJECT_ROOT/scripts/validate-packages.sh"; then
-    echo -e "${RED}Package validation failed!${NC}"
+    echo "ERROR: Package validation failed!"
     echo "Fix package errors before building ISO."
     exit 1
 fi
 echo
 
-# Configuration
-WORK_DIR="${WORK_DIR:-/tmp/archiso-work}"
-OUTPUT_DIR="${OUTPUT_DIR:-$(pwd)/output}"
-PROFILE_DIR="$(pwd)"
+# Setup build locations
+build_dir="/tmp/archiso-build"
+mkdir -p "$build_dir"
 
-echo -e "${YELLOW}Build Configuration:${NC}"
-echo "  Profile: $PROFILE_DIR"
-echo "  Work directory: $WORK_DIR"
-echo "  Output directory: $OUTPUT_DIR"
-echo
+# Copy the official Arch releng profile as our base
+# This provides all the working archiso infrastructure
+echo "==> Copying official Arch releng profile..."
+cp -r /usr/share/archiso/configs/releng/* "$build_dir/"
 
-# Confirm
-read -p "Proceed with build? (y/N) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "Build cancelled."
-    exit 0
+# Remove releng-specific files we don't want
+echo "==> Removing releng-specific files..."
+rm -f "$build_dir/airootfs/etc/motd"
+rm -f "$build_dir/airootfs/etc/systemd/system/multi-user.target.wants/reflector.service" 2>/dev/null || true
+rm -rf "$build_dir/airootfs/etc/systemd/system/reflector.service.d" 2>/dev/null || true
+rm -rf "$build_dir/airootfs/etc/xdg/reflector" 2>/dev/null || true
+
+# Overlay our customizations on top of releng
+echo "==> Overlaying Minimal Hyprland customizations..."
+cp -r /workspace/archiso-installer/airootfs/* "$build_dir/airootfs/" 2>/dev/null || true
+cp -r /workspace/archiso-installer/efiboot/* "$build_dir/efiboot/" 2>/dev/null || true
+cp -r /workspace/archiso-installer/syslinux/* "$build_dir/syslinux/" 2>/dev/null || true
+cp /workspace/archiso-installer/profiledef.sh "$build_dir/"
+cp /workspace/archiso-installer/pacman.conf "$build_dir/" 2>/dev/null || true
+
+# Copy package lists from minimal-hyprland to the ISO
+echo "==> Copying package lists..."
+mkdir -p "$build_dir/airootfs/etc/minimal-hyprland"
+cp /workspace/install/minimal-base.packages "$build_dir/airootfs/etc/minimal-hyprland/" 2>/dev/null || true
+
+# Append our additional packages to releng's packages.x86_64
+echo "==> Adding Minimal Hyprland packages..."
+if [ -f /workspace/archiso-installer/packages.x86_64 ]; then
+    # Extract our custom packages (skip comments and empties, skip archiso since releng has it)
+    grep -v '^#' /workspace/archiso-installer/packages.x86_64 | \
+    grep -v '^$' | \
+    grep -v '^archiso$' >> "$build_dir/packages.x86_64"
 fi
 
-# Clean previous build
-if [ -d "$WORK_DIR" ]; then
-    echo -e "${YELLOW}Cleaning previous build...${NC}"
-    rm -rf "$WORK_DIR"
-fi
+# Show what we're building with
+echo "==> Package count: $(grep -v '^#' "$build_dir/packages.x86_64" | grep -v '^$' | wc -l) packages"
 
-# Create output directory
-mkdir -p "$OUTPUT_DIR"
+# Download packages for offline installation
+echo "==> Populating package cache for offline installation..."
+mkdir -p "$build_dir/airootfs/var/cache/pacman/pkg"
 
-# Build
-echo -e "${GREEN}Building ISO...${NC}"
-echo "This may take 10-30 minutes depending on your system..."
-echo
+# Read all packages from minimal-base.packages for offline installation
+echo "==> Reading package list from minimal-base.packages..."
+HYPRLAND_PACKAGES=$(grep -v '^#' /workspace/install/minimal-base.packages | grep -v '^$' | tr '\n' ' ')
 
-if mkarchiso -v -w "$WORK_DIR" -o "$OUTPUT_DIR" "$PROFILE_DIR"; then
-    echo
-    echo -e "${GREEN}═══════════════════════════════════════${NC}"
-    echo -e "${GREEN}Build successful!${NC}"
-    echo -e "${GREEN}═══════════════════════════════════════${NC}"
-    echo
-    echo "ISO location: $OUTPUT_DIR"
-    ls -lh "$OUTPUT_DIR"/*.iso
-    echo
-    echo -e "${BLUE}Next steps:${NC}"
-    echo "  1. Write to USB: sudo dd if=$OUTPUT_DIR/*.iso of=/dev/sdX bs=4M status=progress"
-    echo "  2. Or use balenaEtcher for a GUI experience"
-    echo "  3. Boot from USB and follow the installer"
-else
-    echo
-    echo -e "${RED}Build failed!${NC}"
-    echo "Check the output above for errors."
-    exit 1
-fi
+# Download all packages archinstall will need:
+# - Essential base system packages
+# - All Hyprland packages from minimal-base.packages
+# This ensures completely offline installation (except git clone)
+echo "==> Downloading all packages to cache..."
+pacman -Syw --noconfirm --cachedir "$build_dir/airootfs/var/cache/pacman/pkg" \
+    base base-devel linux linux-firmware \
+    grub efibootmgr os-prober mtools \
+    dosfstools e2fsprogs cryptsetup sudo \
+    $HYPRLAND_PACKAGES
+
+echo "==> Package cache populated with $(ls "$build_dir/airootfs/var/cache/pacman/pkg" | wc -l) packages"
+
+# Build the ISO
+echo "==> Running mkarchiso..."
+mkarchiso -v -w "$build_dir/work" -o /workspace/archiso-installer/output "$build_dir"
+
+echo "==> Build complete!"
+ls -lh /workspace/archiso-installer/output/

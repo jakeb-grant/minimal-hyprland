@@ -128,6 +128,27 @@ else
   USE_ENCRYPTION_FLAG="no"
 fi
 
+# Calculate disk size for partitioning
+# Get disk size in GiB
+DISK_SIZE_BYTES=$(lsblk -b -d -n -o SIZE "$DISK_PATH")
+DISK_SIZE_GIB=$((DISK_SIZE_BYTES / 1024 / 1024 / 1024))
+
+# Calculate 1.5% safety buffer at end (leave unpartitioned for SSD over-provisioning)
+SAFETY_BUFFER_GIB=$(( (DISK_SIZE_GIB * 15) / 1000 ))
+# Ensure at least 1 GiB buffer
+if [ "$SAFETY_BUFFER_GIB" -lt 1 ]; then
+  SAFETY_BUFFER_GIB=1
+fi
+
+# Root partition starts at 1100 MiB (~1.1 GiB, just after boot partition)
+# Calculate root partition size: total - 1.1 GiB start position - safety buffer
+ROOT_SIZE_GIB=$((DISK_SIZE_GIB - 2 - SAFETY_BUFFER_GIB))
+
+if [ "$ROOT_SIZE_GIB" -lt 8 ]; then
+  gum style --foreground 1 "Error: Disk is too small. Need at least 10 GiB, found ${DISK_SIZE_GIB} GiB"
+  exit 1
+fi
+
 clear
 
 # ============================================================================
@@ -159,6 +180,17 @@ KEYBOARD=$(gum choose "us" "uk" "de" "fr" "es" "Other" \
 
 if [ "$KEYBOARD" = "Other" ]; then
   KEYBOARD=$(gum input --placeholder "us" --prompt "Keyboard layout: ")
+fi
+
+# User password
+echo
+gum style --foreground 6 "User Account Password"
+USER_PASSWORD=$(gum input --password --placeholder "Enter password for $USERNAME")
+USER_PASSWORD_CONFIRM=$(gum input --password --placeholder "Confirm password")
+
+if [ "$USER_PASSWORD" != "$USER_PASSWORD_CONFIRM" ]; then
+  gum style --foreground 1 "Passwords do not match! Exiting."
+  exit 1
 fi
 
 clear
@@ -197,37 +229,118 @@ fi
 clear
 gum style --foreground 2 "Creating installation configuration..."
 
+# Generate UUIDs for partitions
+BOOT_PARTITION_UUID=$(uuidgen)
+ROOT_PARTITION_UUID=$(uuidgen)
+
+# Always use GRUB for universal compatibility (works on both UEFI and BIOS)
+BOOTLOADER="Grub"
+
+# Detect boot mode for partition flag (UEFI needs esp, BIOS needs boot)
+if [ -d /sys/firmware/efi ]; then
+  BOOT_FLAG="esp"
+else
+  BOOT_FLAG="boot"
+fi
+
+# Read package list from minimal-base.packages and convert to JSON array
+PACKAGES_JSON=$(grep -v '^#' /etc/minimal-hyprland/minimal-base.packages | grep -v '^$' | \
+  awk '{printf "\"%s\", ", $0}' | sed 's/, $//')
+
 # Create archinstall config file
 cat > /tmp/user_configuration.json <<EOF
 {
-  "bootloader": "systemd-bootctl",
+  "bootloader": "$BOOTLOADER",
   "swap": true,
   "hostname": "$HOSTNAME",
   "kernels": ["linux"],
-  "locale": "$LOCALE",
-  "mirror-region": "Worldwide",
+  "packages": [$PACKAGES_JSON],
+  "locale_config": {
+    "kb_layout": "$KEYBOARD",
+    "sys_enc": "UTF-8",
+    "sys_lang": "$(echo $LOCALE | cut -d. -f1)"
+  },
   "ntp": true,
   "timezone": "$TIMEZONE",
-  "disk_layouts": {
-    "$DISK_PATH": {
-      "partitions": [
-        {
-          "boot": true,
-          "encrypted": false,
-          "filesystem": "fat32",
-          "mountpoint": "/boot",
-          "size": "512MiB",
-          "type": "primary"
-        },
-        {
-          "encrypted": $([ "$USE_ENCRYPTION_FLAG" = "yes" ] && echo "true" || echo "false"),
-          "filesystem": "btrfs",
-          "mountpoint": "/",
-          "size": "100%",
-          "type": "primary"
-        }
-      ]
+  "network_config": {
+    "type": "nm"
+  },
+  "app_config": {
+    "audio_config": {
+      "audio": "pipewire"
+    },
+    "bluetooth_config": {
+      "enabled": true
     }
+  },
+  "disk_config": {
+    "config_type": "default_layout",
+    "device_modifications": [
+      {
+        "device": "$DISK_PATH",
+        "wipe": true,
+        "partitions": [
+          {
+            "btrfs": [],
+            "dev_path": null,
+            "flags": ["$BOOT_FLAG"],
+            "fs_type": "fat32",
+            "mount_options": [],
+            "mountpoint": "/boot",
+            "obj_id": "$BOOT_PARTITION_UUID",
+            "size": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "GiB",
+              "value": 1
+            },
+            "start": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "MiB",
+              "value": 1
+            },
+            "status": "create",
+            "type": "primary"
+          },
+          {
+            "btrfs": [],
+            "dev_path": null,
+            "flags": [],
+            "fs_type": "ext4",
+            "mount_options": [],
+            "mountpoint": "/",
+            "obj_id": "$ROOT_PARTITION_UUID",
+            "size": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "GiB",
+              "value": $ROOT_SIZE_GIB
+            },
+            "start": {
+              "sector_size": {
+                "unit": "B",
+                "value": 512
+              },
+              "unit": "MiB",
+              "value": 1100
+            },
+            "status": "create",
+            "type": "primary"
+          }
+        ]
+      }
+    ]$([ "$USE_ENCRYPTION_FLAG" = "yes" ] && echo ',
+    "disk_encryption": {
+      "encryption_type": "luks",
+      "partitions": ["'"$ROOT_PARTITION_UUID"'"]
+    }')
   }
 }
 EOF
@@ -235,19 +348,28 @@ EOF
 # Create credentials file
 cat > /tmp/user_credentials.json <<EOF
 {
-  "!users": {
-    "$USERNAME": {
-      "!password": "PROMPT",
+  "users": [
+    {
+      "username": "$USERNAME",
+      "!password": "$USER_PASSWORD",
       "sudo": true
     }
-  }
+  ]
 }
 EOF
 
-# If encryption, add password
+# If encryption is enabled, add password to credentials
 if [ "$USE_ENCRYPTION_FLAG" = "yes" ]; then
-  cat > /tmp/user_disk_encryption.json <<EOF
+  # Add encryption password to credentials file
+  cat > /tmp/user_credentials.json <<EOF
 {
+  "users": [
+    {
+      "username": "$USERNAME",
+      "!password": "$USER_PASSWORD",
+      "sudo": true
+    }
+  ],
   "!encryption-password": "$ENCRYPTION_PASSWORD"
 }
 EOF
@@ -265,7 +387,6 @@ echo
 if ! archinstall \
   --config /tmp/user_configuration.json \
   --creds /tmp/user_credentials.json \
-  $([ "$USE_ENCRYPTION_FLAG" = "yes" ] && echo "--disk-encryption /tmp/user_disk_encryption.json") \
   --silent; then
 
   gum style --foreground 1 "archinstall failed! Check logs for details."
@@ -281,7 +402,7 @@ gum style --foreground 212 --bold "Installing Minimal Hyprland..."
 echo
 
 # Check if minimal-hyprland repo is available
-MINIMAL_HYPRLAND_REPO="${MINIMAL_HYPRLAND_REPO:-yourusername/minimal-hyprland}"
+MINIMAL_HYPRLAND_REPO="${MINIMAL_HYPRLAND_REPO:-jakeb-grant/minimal-hyprland}"
 MINIMAL_HYPRLAND_BRANCH="${MINIMAL_HYPRLAND_BRANCH:-main}"
 
 gum style --foreground 6 "Cloning Minimal Hyprland from: https://github.com/$MINIMAL_HYPRLAND_REPO"
@@ -295,7 +416,7 @@ USER_HOME="/home/$USERNAME"
 mkdir -p "\$USER_HOME/.local/share"
 chown -R $USERNAME:$USERNAME "\$USER_HOME"
 
-# Clone minimal-hyprland as the user
+# Clone minimal-hyprland repo directly to target location
 su - $USERNAME -c "git clone https://github.com/$MINIMAL_HYPRLAND_REPO.git \$USER_HOME/.local/share/minimal-hyprland"
 
 # Checkout specific branch if not main
@@ -307,8 +428,16 @@ fi
 export MINIMAL_HYPRLAND_USER_NAME="$USER_FULL_NAME"
 export MINIMAL_HYPRLAND_USER_EMAIL="$USER_EMAIL"
 
+# Temporarily grant passwordless sudo for installation
+# This allows install.sh to run sudo commands non-interactively
+echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/installer
+chmod 440 /etc/sudoers.d/installer
+
 # Run installer as the user
 su - $USERNAME -c "source \$USER_HOME/.local/share/minimal-hyprland/install.sh"
+
+# Remove temporary passwordless sudo (user still has regular sudo access)
+rm -f /etc/sudoers.d/installer
 
 # Enable NetworkManager
 systemctl enable NetworkManager
