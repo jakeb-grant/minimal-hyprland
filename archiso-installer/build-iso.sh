@@ -53,17 +53,20 @@ echo "==> Package count: $(grep -v '^#' "$build_dir/packages.x86_64" | grep -v '
 echo "==> Populating package cache for offline installation..."
 mkdir -p "$build_dir/airootfs/var/cache/pacman/pkg"
 
-# Download all packages archinstall will need for base system
-# This ensures offline installation works without internet
-# Note: systemd-boot is included in systemd package, not separate
+# Read all packages from minimal-base.packages for offline installation
+echo "==> Reading package list from minimal-base.packages..."
+HYPRLAND_PACKAGES=$(grep -v '^#' /workspace/install/minimal-base.packages | grep -v '^$' | tr '\n' ' ')
+
+# Download all packages archinstall will need:
+# - Essential base system packages
+# - All Hyprland packages from minimal-base.packages
+# This ensures completely offline installation (except git clone)
+echo "==> Downloading all packages to cache..."
 pacman -Syw --noconfirm --cachedir "$build_dir/airootfs/var/cache/pacman/pkg" \
     base base-devel linux linux-firmware \
     grub efibootmgr os-prober mtools \
-    networkmanager \
-    pipewire pipewire-audio pipewire-pulse wireplumber \
-    bluez bluez-utils \
     dosfstools e2fsprogs cryptsetup sudo \
-    git wget curl
+    $HYPRLAND_PACKAGES
 
 echo "==> Package cache populated with $(ls "$build_dir/airootfs/var/cache/pacman/pkg" | wc -l) packages"
 

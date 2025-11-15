@@ -91,7 +91,7 @@ eza
 bat
 gum
 jq
-xdg-terminal-exec
+xdg-utils
 plocate
 
 # Development Tools
