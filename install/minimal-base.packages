@@ -99,7 +99,6 @@ mise
 docker
 docker-compose
 lazygit
-nvim
 
 # Compression
 unzip
