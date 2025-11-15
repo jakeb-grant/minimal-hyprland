@@ -233,12 +233,13 @@ gum style --foreground 2 "Creating installation configuration..."
 BOOT_PARTITION_UUID=$(uuidgen)
 ROOT_PARTITION_UUID=$(uuidgen)
 
-# Detect boot mode (UEFI vs BIOS)
+# Always use GRUB for universal compatibility (works on both UEFI and BIOS)
+BOOTLOADER="Grub"
+
+# Detect boot mode for partition flag (UEFI needs esp, BIOS needs boot)
 if [ -d /sys/firmware/efi ]; then
-  BOOTLOADER="Systemd-boot"
   BOOT_FLAG="esp"
 else
-  BOOTLOADER="Grub"
   BOOT_FLAG="boot"
 fi
 
@@ -249,6 +250,7 @@ cat > /tmp/user_configuration.json <<EOF
   "swap": true,
   "hostname": "$HOSTNAME",
   "kernels": ["linux"],
+  "packages": ["git", "wget", "curl", "base-devel"],
   "locale_config": {
     "kb_layout": "$KEYBOARD",
     "sys_enc": "UTF-8",
@@ -396,7 +398,7 @@ gum style --foreground 212 --bold "Installing Minimal Hyprland..."
 echo
 
 # Check if minimal-hyprland repo is available
-MINIMAL_HYPRLAND_REPO="${MINIMAL_HYPRLAND_REPO:-yourusername/minimal-hyprland}"
+MINIMAL_HYPRLAND_REPO="${MINIMAL_HYPRLAND_REPO:-jakeb-grant/minimal-hyprland}"
 MINIMAL_HYPRLAND_BRANCH="${MINIMAL_HYPRLAND_BRANCH:-main}"
 
 gum style --foreground 6 "Cloning Minimal Hyprland from: https://github.com/$MINIMAL_HYPRLAND_REPO"
