@@ -1,5 +1,5 @@
 #!/bin/bash
 
-# Base packages are installed by archinstall from minimal-base.packages
-# We only need to install AUR packages here
-source "$MINIMAL_HYPRLAND_INSTALL/packaging/aur.sh"
+# All packages are now installed by archinstall from minimal-base.packages
+# No AUR packages needed - everything is in official repos!
+log "Package installation handled by archinstall"

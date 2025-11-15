@@ -6,6 +6,7 @@ hyprland
 hypridle
 hyprlock
 hyprsunset
+uwsm
 
 # Status Bar & Notifications
 waybar
@@ -33,6 +34,7 @@ playerctl
 # Screenshot & Screen Recording
 grim
 slurp
+satty
 
 # Terminal & Shell
 kitty
@@ -93,6 +95,7 @@ xdg-terminal-exec
 plocate
 
 # Development Tools
+mise
 docker
 docker-compose
 lazygit
