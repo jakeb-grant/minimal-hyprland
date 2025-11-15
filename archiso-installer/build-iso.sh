@@ -8,6 +8,18 @@ set -e
 
 echo "==> Building Minimal Hyprland ISO"
 
+# Validate package list first (fail fast before building)
+echo "==> Validating package list..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+if ! "$PROJECT_ROOT/scripts/validate-packages.sh"; then
+    echo "ERROR: Package validation failed!"
+    echo "Fix package errors before building ISO."
+    exit 1
+fi
+echo
+
 # Setup build locations
 build_dir="/tmp/archiso-build"
 mkdir -p "$build_dir"
