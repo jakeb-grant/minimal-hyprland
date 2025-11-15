@@ -50,9 +50,10 @@ mkdir -p "$build_dir/airootfs/var/cache/pacman/pkg"
 
 # Download all packages archinstall will need for base system
 # This ensures offline installation works without internet
+# Note: systemd-boot is included in systemd package, not separate
 pacman -Syw --noconfirm --cachedir "$build_dir/airootfs/var/cache/pacman/pkg" \
     base base-devel linux linux-firmware \
-    grub efibootmgr systemd-boot \
+    grub efibootmgr \
     networkmanager \
     pipewire pipewire-audio pipewire-pulse wireplumber \
     bluez bluez-utils \
