@@ -33,6 +33,19 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Validate package list
+echo
+echo -e "${YELLOW}Validating package list...${NC}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+if ! "$PROJECT_ROOT/scripts/validate-packages.sh"; then
+    echo -e "${RED}Package validation failed!${NC}"
+    echo "Fix package errors before building ISO."
+    exit 1
+fi
+echo
+
 # Configuration
 WORK_DIR="${WORK_DIR:-/tmp/archiso-work}"
 OUTPUT_DIR="${OUTPUT_DIR:-$(pwd)/output}"
