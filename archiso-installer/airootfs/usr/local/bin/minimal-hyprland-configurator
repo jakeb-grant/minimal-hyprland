@@ -424,8 +424,16 @@ fi
 export MINIMAL_HYPRLAND_USER_NAME="$USER_FULL_NAME"
 export MINIMAL_HYPRLAND_USER_EMAIL="$USER_EMAIL"
 
+# Temporarily grant passwordless sudo for installation
+# This allows install.sh to run sudo commands non-interactively
+echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/installer
+chmod 440 /etc/sudoers.d/installer
+
 # Run installer as the user
 su - $USERNAME -c "source \$USER_HOME/.local/share/minimal-hyprland/install.sh"
+
+# Remove temporary passwordless sudo (user still has regular sudo access)
+rm -f /etc/sudoers.d/installer
 
 # Enable NetworkManager
 systemctl enable NetworkManager
