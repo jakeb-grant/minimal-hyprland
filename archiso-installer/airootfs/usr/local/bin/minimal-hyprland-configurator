@@ -412,20 +412,25 @@ USER_HOME="/home/$USERNAME"
 mkdir -p "\$USER_HOME/.local/share"
 chown -R $USERNAME:$USERNAME "\$USER_HOME"
 
-# Clone minimal-hyprland as the user
-su - $USERNAME -c "git clone https://github.com/$MINIMAL_HYPRLAND_REPO.git \$USER_HOME/.local/share/minimal-hyprland"
+# Clone minimal-hyprland repo to temp location
+TEMP_CLONE="/tmp/minimal-hyprland-clone-$$"
+su - $USERNAME -c "git clone https://github.com/$MINIMAL_HYPRLAND_REPO.git \$TEMP_CLONE"
 
 # Checkout specific branch if not main
 if [ "$MINIMAL_HYPRLAND_BRANCH" != "main" ]; then
-  su - $USERNAME -c "cd \$USER_HOME/.local/share/minimal-hyprland && git checkout $MINIMAL_HYPRLAND_BRANCH"
+  su - $USERNAME -c "cd \$TEMP_CLONE && git checkout $MINIMAL_HYPRLAND_BRANCH"
 fi
+
+# Move just the minimal-hyprland subfolder to the expected location
+su - $USERNAME -c "mv \$TEMP_CLONE/minimal-hyprland \$USER_HOME/.local/share/minimal-hyprland"
+rm -rf "\$TEMP_CLONE"
 
 # Set environment variables for git config
 export MINIMAL_HYPRLAND_USER_NAME="$USER_FULL_NAME"
 export MINIMAL_HYPRLAND_USER_EMAIL="$USER_EMAIL"
 
 # Run installer as the user
-su - $USERNAME -c "source \$USER_HOME/.local/share/minimal-hyprland/minimal-hyprland/install.sh"
+su - $USERNAME -c "source \$USER_HOME/.local/share/minimal-hyprland/install.sh"
 
 # Enable NetworkManager
 systemctl enable NetworkManager
