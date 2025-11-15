@@ -48,6 +48,25 @@ jobs:
       run: |
         docker pull archlinux:latest
 
+    - name: Validate package list
+      run: |
+        docker run --rm \
+          -v ${{ github.workspace }}:/workspace \
+          -w /workspace \
+          archlinux:latest \
+          /bin/bash -c "
+            set -e
+
+            # Update package database
+            pacman -Sy --noconfirm
+
+            # Make validation script executable
+            chmod +x scripts/validate-packages.sh
+
+            # Run validation
+            ./scripts/validate-packages.sh
+          "
+
     - name: Build ISO in Arch container
       run: |
         docker run --rm --privileged \
