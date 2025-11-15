@@ -425,7 +425,7 @@ export MINIMAL_HYPRLAND_USER_NAME="$USER_FULL_NAME"
 export MINIMAL_HYPRLAND_USER_EMAIL="$USER_EMAIL"
 
 # Run installer as the user
-su - $USERNAME -c "source \$USER_HOME/.local/share/minimal-hyprland/install.sh"
+su - $USERNAME -c "source \$USER_HOME/.local/share/minimal-hyprland/minimal-hyprland/install.sh"
 
 # Enable NetworkManager
 systemctl enable NetworkManager
