@@ -1,0 +1,11 @@
+# Minimal Hyprland - AUR Packages
+# Packages from the Arch User Repository
+
+# Wayland Session Manager
+uwsm
+
+# Screenshot Tools
+satty
+
+# Development Tools
+mise

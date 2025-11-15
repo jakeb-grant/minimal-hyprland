@@ -6,7 +6,6 @@ hyprland
 hypridle
 hyprlock
 hyprsunset
-uwsm
 
 # Status Bar & Notifications
 waybar
@@ -33,7 +32,6 @@ playerctl
 # Screenshot & Screen Recording
 grim
 slurp
-satty
 
 # Terminal & Shell
 kitty
@@ -70,7 +68,7 @@ noto-fonts-cjk
 # Essential Utilities
 git
 github-cli
-man
+man-db
 less
 tree-sitter-cli
 fastfetch
@@ -84,7 +82,6 @@ gum
 jq
 
 # Development Tools
-mise
 docker
 docker-compose
 lazygit
