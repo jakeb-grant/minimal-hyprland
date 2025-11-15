@@ -243,6 +243,10 @@ else
   BOOT_FLAG="boot"
 fi
 
+# Read package list from minimal-base.packages and convert to JSON array
+PACKAGES_JSON=$(grep -v '^#' /etc/minimal-hyprland/minimal-base.packages | grep -v '^$' | \
+  awk '{printf "\"%s\", ", $0}' | sed 's/, $//')
+
 # Create archinstall config file
 cat > /tmp/user_configuration.json <<EOF
 {
@@ -250,7 +254,7 @@ cat > /tmp/user_configuration.json <<EOF
   "swap": true,
   "hostname": "$HOSTNAME",
   "kernels": ["linux"],
-  "packages": ["git", "wget", "curl", "base-devel"],
+  "packages": [$PACKAGES_JSON],
   "locale_config": {
     "kb_layout": "$KEYBOARD",
     "sys_enc": "UTF-8",
@@ -424,8 +428,16 @@ fi
 export MINIMAL_HYPRLAND_USER_NAME="$USER_FULL_NAME"
 export MINIMAL_HYPRLAND_USER_EMAIL="$USER_EMAIL"
 
+# Temporarily grant passwordless sudo for installation
+# This allows install.sh to run sudo commands non-interactively
+echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/installer
+chmod 440 /etc/sudoers.d/installer
+
 # Run installer as the user
 su - $USERNAME -c "source \$USER_HOME/.local/share/minimal-hyprland/install.sh"
+
+# Remove temporary passwordless sudo (user still has regular sudo access)
+rm -f /etc/sudoers.d/installer
 
 # Enable NetworkManager
 systemctl enable NetworkManager

@@ -32,6 +32,11 @@ cp -r /workspace/archiso-installer/syslinux/* "$build_dir/syslinux/" 2>/dev/null
 cp /workspace/archiso-installer/profiledef.sh "$build_dir/"
 cp /workspace/archiso-installer/pacman.conf "$build_dir/" 2>/dev/null || true
 
+# Copy package lists from minimal-hyprland to the ISO
+echo "==> Copying package lists..."
+mkdir -p "$build_dir/airootfs/etc/minimal-hyprland"
+cp /workspace/install/minimal-base.packages "$build_dir/airootfs/etc/minimal-hyprland/" 2>/dev/null || true
+
 # Append our additional packages to releng's packages.x86_64
 echo "==> Adding Minimal Hyprland packages..."
 if [ -f /workspace/archiso-installer/packages.x86_64 ]; then
