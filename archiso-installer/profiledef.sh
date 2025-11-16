@@ -19,4 +19,5 @@ file_permissions=(
   ["/root/.automated_script.sh"]="0:0:755"
   ["/root/.zlogin"]="0:0:644"
   ["/usr/local/bin/minimal-hyprland-configurator"]="0:0:755"
+  ["/etc/NetworkManager/conf.d/wifi-backend.conf"]="0:0:644"
 )
