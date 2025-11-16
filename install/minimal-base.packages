@@ -112,6 +112,7 @@ lazygit
 unzip
 
 # Network
+networkmanager
 iwd
 curl
 wget
