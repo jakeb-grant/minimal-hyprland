@@ -461,7 +461,7 @@ cat > /etc/hosts <<EOF
 EOF
 
 echo "→ Creating user account ($USERNAME)..."
-useradd -m -G wheel,audio,video,storage,power,input -s /bin/bash "$USERNAME"
+useradd -m -G wheel,audio,video,storage,power,input,docker -s /bin/bash "$USERNAME"
 echo "$USERNAME:$USER_PASSWORD" | chpasswd
 
 echo "→ Enabling sudo for wheel group..."
@@ -470,12 +470,19 @@ sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 echo "→ Setting root password..."
 echo "root:$USER_PASSWORD" | chpasswd
 
-# Configure mkinitcpio for encryption if enabled
+echo "→ Configuring pacman..."
+sed -i 's/^#ParallelDownloads/ParallelDownloads/' /etc/pacman.conf
+sed -i 's/^#Color/Color/' /etc/pacman.conf
+sed -i 's/^#VerbosePkgLists/VerbosePkgLists/' /etc/pacman.conf
+
+# Configure mkinitcpio for encryption and plymouth
+echo "→ Configuring initramfs..."
 if [ "$USE_ENCRYPTION" = "yes" ]; then
-  echo "→ Configuring initramfs for disk encryption..."
-  sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont block encrypt filesystems fsck)/' /etc/mkinitcpio.conf
-  mkinitcpio -P
+  sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont plymouth block encrypt filesystems fsck)/' /etc/mkinitcpio.conf
+else
+  sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont plymouth block filesystems fsck)/' /etc/mkinitcpio.conf
 fi
+mkinitcpio -P
 
 # Install and configure bootloader
 echo "→ Installing GRUB bootloader..."
@@ -497,6 +504,26 @@ grub-mkconfig -o /boot/grub/grub.cfg
 
 echo "→ Enabling NetworkManager..."
 systemctl enable NetworkManager
+
+echo "→ Creating swapfile (2GB)..."
+dd if=/dev/zero of=/swapfile bs=1M count=2048 status=progress
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo '/swapfile none swap defaults 0 0' >> /etc/fstab
+
+echo "→ Enabling system services..."
+systemctl enable docker.service
+systemctl enable avahi-daemon.service
+
+echo "→ Configuring firewall..."
+systemctl enable ufw.service
+ufw --force enable
+ufw default deny incoming
+ufw default allow outgoing
+
+echo "→ Initializing file search database..."
+updatedb
 
 echo "✓ System configuration complete!"
 CHROOT_SCRIPT
