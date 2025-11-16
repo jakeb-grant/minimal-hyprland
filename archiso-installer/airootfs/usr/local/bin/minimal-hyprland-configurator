@@ -529,15 +529,46 @@ fi
 PACKAGES=$(grep -v '^#' "$PACKAGE_FILE" | grep -v '^$' | tr '\n' ' ')
 
 info "Installing base system and all minimal-hyprland packages..."
-gum style --foreground 6 --italic "This will take 5-15 minutes. Watch the packages install below:"
 echo
 
-# Run pacstrap with all packages (streaming output visible)
-if ! pacstrap -K /mnt base linux linux-firmware $PACKAGES; then
-  echo
-  error "pacstrap failed!"
+# Create visual container for streaming output
+gum style \
+  --border double \
+  --border-foreground 212 \
+  --padding "0 2" \
+  --align center \
+  --width 80 \
+  "📦 Package Installation Progress"
+echo
+gum style --foreground 6 --dim "Showing last 20 lines (scrolling output) - This takes 5-15 minutes"
+echo
+
+# Create scrolling output box - stream to log and display last 20 lines in real-time
+PACSTRAP_LOG=$(mktemp)
+
+# Run pacstrap in background, logging output
+stdbuf -oL pacstrap -K /mnt base linux linux-firmware $PACKAGES > "$PACSTRAP_LOG" 2>&1 &
+PACSTRAP_PID=$!
+
+# Display scrolling last 20 lines with visual indentation
+tail -f -n 20 "$PACSTRAP_LOG" 2>/dev/null | sed 's/^/  │ /' &
+TAIL_PID=$!
+
+# Wait for pacstrap to complete
+wait $PACSTRAP_PID
+PACSTRAP_RESULT=$?
+
+# Stop tail
+kill $TAIL_PID 2>/dev/null
+wait $TAIL_PID 2>/dev/null
+
+echo
+if [ $PACSTRAP_RESULT -ne 0 ]; then
+  error "pacstrap failed! Check log: $PACSTRAP_LOG"
   exit 1
 fi
+
+rm -f "$PACSTRAP_LOG"
 
 success "All packages installed successfully"
 echo
