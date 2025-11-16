@@ -93,6 +93,7 @@ gum
 jq
 xdg-utils
 plocate
+inetutils
 
 # Development Tools
 mise
