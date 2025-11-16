@@ -20,4 +20,5 @@ file_permissions=(
   ["/root/.zlogin"]="0:0:644"
   ["/usr/local/bin/minimal-hyprland-configurator"]="0:0:755"
   ["/etc/NetworkManager/conf.d/wifi-backend.conf"]="0:0:644"
+  ["/etc/minimal-hyprland/minimal-base.packages"]="0:0:644"
 )

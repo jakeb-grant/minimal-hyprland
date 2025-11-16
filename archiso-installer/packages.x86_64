@@ -25,15 +25,17 @@ f2fs-tools
 ntfs-3g
 xfsprogs
 
+# Partitioning and encryption
+gptfdisk
+cryptsetup
+lvm2
+
 # Network
 networkmanager
 iwd
 wpa_supplicant
 dhcpcd
 openssh
-
-# Archinstall
-archinstall
 
 # TUI Tools
 gum
