@@ -1,6 +1,9 @@
 # Minimal Hyprland Desktop - Core Packages Only
 # Essential packages for a beautiful, functional Hyprland setup
 
+# System Essentials
+sudo
+
 # Window Manager & Session
 hyprland
 hypridle
