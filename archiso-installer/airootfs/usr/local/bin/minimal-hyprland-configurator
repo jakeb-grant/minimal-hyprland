@@ -439,6 +439,17 @@ echo "LANG=$LOCALE" > /etc/locale.conf
 echo "→ Setting keyboard layout ($KEYBOARD)..."
 echo "KEYMAP=$KEYBOARD" > /etc/vconsole.conf
 
+echo "→ Configuring SDDM keyboard layout..."
+mkdir -p /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/keyboard.conf <<SDDM_EOF
+[General]
+InputMethod=
+Numlock=none
+
+[X11]
+ServerArguments=-nolisten tcp -layout $KEYBOARD
+SDDM_EOF
+
 echo "→ Setting hostname ($HOSTNAME)..."
 echo "$HOSTNAME" > /etc/hostname
 
@@ -540,6 +551,7 @@ set -eEuo pipefail
 USERNAME="$USERNAME"
 USER_FULL_NAME="$USER_FULL_NAME"
 USER_EMAIL="$USER_EMAIL"
+KEYBOARD="$KEYBOARD"
 REPO="$MINIMAL_HYPRLAND_REPO"
 BRANCH="$MINIMAL_HYPRLAND_BRANCH"
 
@@ -566,6 +578,16 @@ su - \$USERNAME -c "source \$USER_HOME/.local/share/minimal-hyprland/install.sh"
 
 # Remove temporary passwordless sudo
 rm -f /etc/sudoers.d/installer
+
+echo "→ Configuring Hyprland keyboard layout..."
+cat > "\$USER_HOME/.config/hypr/input.conf" <<HYPR_EOF
+# User Input Overrides
+# Keyboard layout set during installation
+input {
+    kb_layout = \$KEYBOARD
+}
+HYPR_EOF
+chown \$USERNAME:\$USERNAME "\$USER_HOME/.config/hypr/input.conf"
 
 echo "✓ Minimal Hyprland installation complete!"
 HYPRLAND_SCRIPT
