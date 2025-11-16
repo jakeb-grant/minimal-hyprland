@@ -529,11 +529,12 @@ fi
 PACKAGES=$(grep -v '^#' "$PACKAGE_FILE" | grep -v '^$' | tr '\n' ' ')
 
 info "Installing base system and all minimal-hyprland packages..."
+gum style --foreground 6 --italic "This will take 5-15 minutes. Watch the packages install below:"
 echo
 
-# Run pacstrap with all packages
-if ! gum spin --title "Running pacstrap (this may take 5-15 minutes)..." -- \
-  pacstrap -K /mnt base linux linux-firmware $PACKAGES; then
+# Run pacstrap with all packages (streaming output visible)
+if ! pacstrap -K /mnt base linux linux-firmware $PACKAGES; then
+  echo
   error "pacstrap failed!"
   exit 1
 fi
