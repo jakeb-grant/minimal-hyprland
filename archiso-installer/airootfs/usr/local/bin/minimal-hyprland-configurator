@@ -400,13 +400,22 @@ run_with_spinner "Wiping disk..." \
 run_with_spinner "Creating GPT partition table..." \
   sgdisk -o "$DISK_PATH"
 
-# Create ESP partition (1GB)
-run_with_spinner "Creating EFI system partition (1GB)..." \
-  sgdisk -n 1:0:+1G -t 1:ef00 -c 1:"EFI System" "$DISK_PATH"
+# Create partitions based on boot mode
+if [ "$BOOT_MODE" = "UEFI" ]; then
+  # UEFI: ESP (1GB) + Root (rest)
+  run_with_spinner "Creating EFI system partition (1GB)..." \
+    sgdisk -n 1:0:+1G -t 1:ef00 -c 1:"EFI System" "$DISK_PATH"
 
-# Create root partition (rest of disk, minus safety buffer)
-run_with_spinner "Creating root partition..." \
-  sgdisk -n 2:0:-1G -t 2:8300 -c 2:"Linux root" "$DISK_PATH"
+  run_with_spinner "Creating root partition..." \
+    sgdisk -n 2:0:-1G -t 2:8300 -c 2:"Linux root" "$DISK_PATH"
+else
+  # BIOS: BIOS Boot (1MB) + Root (rest)
+  run_with_spinner "Creating BIOS boot partition (1MB)..." \
+    sgdisk -n 1:0:+1M -t 1:ef02 -c 1:"BIOS Boot" "$DISK_PATH"
+
+  run_with_spinner "Creating root partition..." \
+    sgdisk -n 2:0:-1G -t 2:8300 -c 2:"Linux root" "$DISK_PATH"
+fi
 
 # Inform kernel of partition changes
 run_with_spinner "Updating partition table..." \
@@ -426,8 +435,13 @@ fi
 BOOT_PARTITION="${PART_PREFIX}1"
 ROOT_PARTITION="${PART_PREFIX}2"
 
-info "  ESP: $BOOT_PARTITION"
-info "  Root: $ROOT_PARTITION"
+if [ "$BOOT_MODE" = "UEFI" ]; then
+  info "  ESP: $BOOT_PARTITION"
+  info "  Root: $ROOT_PARTITION"
+else
+  info "  BIOS Boot: $BOOT_PARTITION (raw, not mounted)"
+  info "  Root: $ROOT_PARTITION"
+fi
 echo
 
 # ============================================================================
@@ -462,8 +476,12 @@ fi
 step "Step 3/7: Formatting partitions"
 echo
 
-run_with_spinner "Formatting EFI partition as FAT32..." \
-  mkfs.fat -F32 -n "BOOT" "$BOOT_PARTITION"
+if [ "$BOOT_MODE" = "UEFI" ]; then
+  run_with_spinner "Formatting EFI partition as FAT32..." \
+    mkfs.fat -F32 -n "BOOT" "$BOOT_PARTITION"
+else
+  info "BIOS boot partition left raw (no filesystem)"
+fi
 
 run_with_spinner "Formatting root partition as ext4..." \
   mkfs.ext4 -F -L "ROOT" "$ROOT_DEVICE"
@@ -481,11 +499,15 @@ echo
 run_with_spinner "Mounting root partition..." \
   mount "$ROOT_DEVICE" /mnt
 
-run_with_spinner "Creating /mnt/boot directory..." \
-  mkdir -p /mnt/boot
+if [ "$BOOT_MODE" = "UEFI" ]; then
+  run_with_spinner "Creating /mnt/boot directory..." \
+    mkdir -p /mnt/boot
 
-run_with_spinner "Mounting boot partition..." \
-  mount "$BOOT_PARTITION" /mnt/boot
+  run_with_spinner "Mounting EFI partition to /mnt/boot..." \
+    mount "$BOOT_PARTITION" /mnt/boot
+else
+  info "BIOS boot partition not mounted (used by GRUB only)"
+fi
 
 success "Partitions mounted"
 echo
