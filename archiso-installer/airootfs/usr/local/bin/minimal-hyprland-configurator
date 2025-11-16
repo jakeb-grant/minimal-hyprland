@@ -229,6 +229,140 @@ fi
 clear
 
 # ============================================================================
+# Network Connectivity Check
+# ============================================================================
+
+gum style --foreground 212 --bold "Checking Network Connectivity"
+echo
+
+# Check if we have internet
+check_internet() {
+  ping -c 1 -W 2 archlinux.org &>/dev/null
+}
+
+if ! check_internet; then
+  gum style --foreground 3 "No internet connection detected."
+  echo
+
+  while true; do
+    if gum confirm "Would you like to connect to WiFi?"; then
+      # Start NetworkManager if not running
+      systemctl start NetworkManager &>/dev/null || true
+      sleep 2
+
+      info "Scanning for WiFi networks..."
+      nmcli device wifi rescan 2>/dev/null || true
+      sleep 3
+
+      # Get list of available networks
+      NETWORKS=$(nmcli -t -f SSID,SIGNAL,SECURITY device wifi list | sort -t: -k2 -rn | head -20)
+
+      if [ -z "$NETWORKS" ]; then
+        error "No WiFi networks found!"
+        echo
+        if ! gum confirm "Retry scanning?"; then
+          gum style --foreground 3 "Continuing without internet (may fail during package installation)"
+          sleep 2
+          break
+        fi
+        continue
+      fi
+
+      # Format networks for display
+      NETWORK_LIST=$(echo "$NETWORKS" | awk -F: '{
+        ssid=$1
+        signal=$2
+        security=$3
+        if (security == "") security="Open"
+        printf "%s (%s%%, %s)\n", ssid, signal, security
+      }')
+
+      # Let user choose network
+      SELECTED=$(echo "$NETWORK_LIST" | gum choose --header "Select WiFi network:")
+
+      if [ -z "$SELECTED" ]; then
+        if ! gum confirm "No network selected. Try again?"; then
+          gum style --foreground 3 "Continuing without internet (may fail during package installation)"
+          sleep 2
+          break
+        fi
+        continue
+      fi
+
+      # Extract SSID from selection
+      SSID=$(echo "$SELECTED" | sed 's/ (.*//')
+
+      # Check if network requires password
+      SECURITY=$(echo "$NETWORKS" | grep "^${SSID}:" | cut -d: -f3)
+
+      if [ -n "$SECURITY" ] && [ "$SECURITY" != "--" ]; then
+        # Network is secured, ask for password
+        WIFI_PASSWORD=$(gum input --password --placeholder "Enter WiFi password")
+
+        if [ -z "$WIFI_PASSWORD" ]; then
+          error "No password entered!"
+          continue
+        fi
+
+        info "Connecting to $SSID..."
+        if nmcli device wifi connect "$SSID" password "$WIFI_PASSWORD" 2>/dev/null; then
+          success "Connected to $SSID"
+        else
+          error "Failed to connect to $SSID"
+          echo
+          if ! gum confirm "Try again?"; then
+            gum style --foreground 3 "Continuing without internet (may fail during package installation)"
+            sleep 2
+            break
+          fi
+          continue
+        fi
+      else
+        # Open network
+        info "Connecting to $SSID..."
+        if nmcli device wifi connect "$SSID" 2>/dev/null; then
+          success "Connected to $SSID"
+        else
+          error "Failed to connect to $SSID"
+          echo
+          if ! gum confirm "Try again?"; then
+            gum style --foreground 3 "Continuing without internet (may fail during package installation)"
+            sleep 2
+            break
+          fi
+          continue
+        fi
+      fi
+
+      # Verify internet connectivity
+      sleep 2
+      if check_internet; then
+        success "Internet connectivity verified!"
+        sleep 1
+        break
+      else
+        error "Connected to WiFi but no internet access"
+        echo
+        if ! gum confirm "Try a different network?"; then
+          gum style --foreground 3 "Continuing without internet (may fail during package installation)"
+          sleep 2
+          break
+        fi
+      fi
+    else
+      gum style --foreground 3 "Continuing without internet (may fail during package installation)"
+      sleep 2
+      break
+    fi
+  done
+else
+  success "Internet connection detected"
+  sleep 1
+fi
+
+clear
+
+# ============================================================================
 # Installation Phase
 # ============================================================================
 
