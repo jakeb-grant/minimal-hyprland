@@ -659,8 +659,12 @@ fi
 echo "→ Generating GRUB configuration..."
 grub-mkconfig -o /boot/grub/grub.cfg
 
-echo "→ Enabling NetworkManager..."
+echo "→ Enabling NetworkManager and iwd..."
 systemctl enable NetworkManager
+systemctl enable iwd
+
+echo "→ Enabling SDDM display manager..."
+systemctl enable sddm
 
 echo "→ Creating swapfile (2GB)..."
 dd if=/dev/zero of=/swapfile bs=1M count=2048 status=progress
